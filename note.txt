@@ -1,0 +1,1 @@
+Nhận dữ liệu âm thanh từ ardunio về python rồi code xử lý data rồi trả về adrunio để xử lý

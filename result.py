@@ -16,7 +16,7 @@ model = load_model(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 
 # Thông tin kết nối đến ESP32
-HOST = '192.168.137.36'
+HOST = '192.168.137.33'
 PORT = 8888
 
 # Cấu hình âm thanh
@@ -131,9 +131,7 @@ class AudioApp:
         result = np.array([])
         mfcc = np.mean(librosa.feature.mfcc(y=data, sr=SAMPLE_RATE, n_mfcc=40).T, axis=0)
         result = np.hstack((result, mfcc))
-        
-        # Khởi tạo lại result giống với code huấn luyện
-        result = np.array([])
+        # result = np.array([])
         
         # Zero Crossing Rate
         zcr = np.mean(librosa.feature.zero_crossing_rate(y=data).T, axis=0)
@@ -161,7 +159,7 @@ class AudioApp:
             features = self.extract_features(self.audio_samples_list).reshape(1, -1)
             print(f"Feature shape: {features.shape}")
             
-            features = scaler.transform(features).reshape(1, 142, 1)
+            features = scaler.transform(features).reshape(1, 182, 1)
             prediction = model.predict(features)[0]
             labels = ["Happy", "Neutral"]
             

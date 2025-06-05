@@ -16,7 +16,7 @@ model = load_model(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 
 # Thông tin kết nối đến ESP32
-HOST = '192.168.137.254'
+HOST = '192.168.137.36'
 PORT = 8888
 
 # Cấu hình âm thanh
@@ -65,6 +65,9 @@ class AudioApp:
         self.result_frame.pack(pady=15)
         self.result_label = ttk.Label(self.result_frame, text="Emotion: None", font=("Segoe UI", 16, "bold"), background="#f5f6fa", foreground="#e17055")
         self.result_label.pack(pady=10)
+        # Thêm vào phần __init__ sau dòng self.result_label.pack(pady=10)
+        self.detail_label = ttk.Label(self.result_frame, text="", font=("Segoe UI", 12), background="#f5f6fa", foreground="#636e72")
+        self.detail_label.pack(pady=5)
 
     def start_recording(self):
         self.is_recording = True
@@ -123,29 +126,62 @@ class AudioApp:
 
     def extract_features(self, audio_data):
         data = np.array(audio_data, dtype=np.float32)
+        
+        # MFCC - tạo mảng result mới
         result = np.array([])
         mfcc = np.mean(librosa.feature.mfcc(y=data, sr=SAMPLE_RATE, n_mfcc=40).T, axis=0)
         result = np.hstack((result, mfcc))
+        
+        # Khởi tạo lại result giống với code huấn luyện
+        result = np.array([])
+        
+        # Zero Crossing Rate
         zcr = np.mean(librosa.feature.zero_crossing_rate(y=data).T, axis=0)
         result = np.hstack((result, zcr))
+        
+        # Chroma STFT
         stft = np.abs(librosa.stft(data))
         chroma_stft = np.mean(librosa.feature.chroma_stft(S=stft, sr=SAMPLE_RATE).T, axis=0)
         result = np.hstack((result, chroma_stft))
+        
+        # RMS
         rms = np.mean(librosa.feature.rms(y=data).T, axis=0)
         result = np.hstack((result, rms))
+        
+        # Mel Spectrogram
         mel = np.mean(librosa.feature.melspectrogram(y=data, sr=SAMPLE_RATE).T, axis=0)
         result = np.hstack((result, mel))
+        
         return result
 
     def predict_emotion(self):
         if not self.audio_samples_list:
             return
-        features = self.extract_features(self.audio_samples_list).reshape(1, -1)
-        features = scaler.transform(features).reshape(1, 142, 1)
-        prediction = model.predict(features)
-        labels = ["Happy", "Neutral"]
-        emotion = labels[np.argmax(prediction)]
-        self.result_label.config(text=f"Emotion: {emotion}")
+        try:
+            features = self.extract_features(self.audio_samples_list).reshape(1, -1)
+            print(f"Feature shape: {features.shape}")
+            
+            features = scaler.transform(features).reshape(1, 142, 1)
+            prediction = model.predict(features)[0]
+            labels = ["Happy", "Neutral"]
+            
+            # In ra xác suất và nhãn
+            happy_prob = prediction[0] * 100
+            neutral_prob = prediction[1] * 100
+            
+            emotion = labels[np.argmax(prediction)]
+            confidence = np.max(prediction) * 100
+            
+            # Hiển thị emotion chính
+            self.result_label.config(text=f"Emotion: {emotion} ({confidence:.1f}%)")
+            
+            # Hiển thị chi tiết probability cho cả hai cảm xúc
+            self.detail_label.config(text=f"Happy: {happy_prob:.1f}% | Neutral: {neutral_prob:.1f}%")
+            
+        except Exception as e:
+            print(f"Error in prediction: {str(e)}")
+            self.result_label.config(text="Emotion: Error")
+            self.detail_label.config(text="")
 
 if __name__ == "__main__":
     root = tk.Tk()
